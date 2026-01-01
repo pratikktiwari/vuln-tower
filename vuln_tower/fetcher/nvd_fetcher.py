@@ -46,8 +46,6 @@ class NVDFetcher(CVEFetcher):
         """
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(minutes=self.fetch_window_minutes)
-        # test with start time t - 3 days
-        start_time = end_time - timedelta(days=3)
 
         self.logger.info(
             "Fetching CVEs from NVD",
