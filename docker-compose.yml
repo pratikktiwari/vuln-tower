@@ -1,0 +1,85 @@
+# Vuln Tower - Docker Compose Example
+#
+# This example demonstrates how to run Vuln Tower with PostgreSQL
+# in a containerized environment.
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: vulntower
+      POSTGRES_USER: vulntower
+      POSTGRES_PASSWORD: changeme
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vulntower"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vuln-tower
+
+  vuln-tower:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # General
+      APP_NAME: vuln-tower
+      LOG_LEVEL: INFO
+      RUN_MODE: cron
+      
+      # Database
+      DB_TYPE: postgres
+      DB_NAME: vulntower
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: vulntower
+      DB_PASSWORD: changeme
+      
+      # NVD
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      FETCH_WINDOW_MINUTES: 60
+      MAX_RESULTS_PER_RUN: 100
+      
+      # Filters
+      MIN_CVSS_SCORE: 7.0
+      
+      # Notifications
+      ENABLE_DISCORD: ${ENABLE_DISCORD:-false}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      ENABLE_SLACK: ${ENABLE_SLACK:-false}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      ENABLE_TEAMS: ${ENABLE_TEAMS:-false}
+      TEAMS_WEBHOOK_URL: ${TEAMS_WEBHOOK_URL:-}
+      ENABLE_TELEGRAM: ${ENABLE_TELEGRAM:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      
+      # Pipeline (optional)
+      ENABLE_PIPELINE: ${ENABLE_PIPELINE:-false}
+      PIPELINE_STEPS: ${PIPELINE_STEPS:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    networks:
+      - vuln-tower
+    # Uncomment for one-time execution
+    # command: python -m vuln_tower.main
+    
+    # For cron-like behavior, use restart policy with sleep
+    command: >
+      sh -c "while true; do
+        python -m vuln_tower.main;
+        sleep 3600;
+      done"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  vuln-tower:
+    driver: bridge

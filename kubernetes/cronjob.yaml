@@ -1,0 +1,182 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vuln-tower
+  namespace: default
+spec:
+  # Schedule: Run every hour (adjust as needed)
+  # Format: "minute hour day month weekday"
+  schedule: "0 * * * *"
+
+  # Concurrency policy: Forbid prevents overlapping runs
+  concurrencyPolicy: Forbid
+
+  # Keep last 3 successful and 1 failed job for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+  jobTemplate:
+    spec:
+      # Clean up completed jobs after 6 hours
+      ttlSecondsAfterFinished: 21600
+
+      template:
+        metadata:
+          labels:
+            app: vuln-tower
+
+        spec:
+          restartPolicy: Never
+
+          containers:
+            - name: vuln-tower
+              image: vuln-tower:latest
+              imagePullPolicy: IfNotPresent
+
+              env:
+                # General Configuration
+                - name: APP_NAME
+                  value: "cve-notifier"
+                - name: LOG_LEVEL
+                  value: "INFO"
+                - name: RUN_MODE
+                  value: "cron"
+
+                # Database Configuration (SQLite example)
+                - name: DB_TYPE
+                  value: "sqlite"
+                - name: DB_NAME
+                  value: "/data/vuln_tower.db"
+
+                # NVD Configuration
+                - name: NVD_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: nvd-api-key
+                      optional: true
+                - name: FETCH_WINDOW_MINUTES
+                  value: "60"
+                - name: MAX_RESULTS_PER_RUN
+                  value: "100"
+
+                # Filter Configuration
+                - name: MIN_CVSS_SCORE
+                  value: "7.0"
+                - name: KEYWORDS
+                  value: ""
+                - name: PRODUCTS
+                  value: ""
+                - name: VENDORS
+                  value: ""
+
+                # Notification Configuration - Discord
+                - name: ENABLE_DISCORD
+                  value: "true"
+                - name: DISCORD_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: discord-webhook-url
+                      optional: true
+
+                # Notification Configuration - Slack
+                - name: ENABLE_SLACK
+                  value: "false"
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: slack-webhook-url
+                      optional: true
+
+                # Notification Configuration - Teams
+                - name: ENABLE_TEAMS
+                  value: "false"
+                - name: TEAMS_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: teams-webhook-url
+                      optional: true
+
+                # Notification Configuration - Telegram
+                - name: ENABLE_TELEGRAM
+                  value: "false"
+                - name: TELEGRAM_BOT_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: telegram-bot-token
+                      optional: true
+                - name: TELEGRAM_CHAT_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: telegram-chat-id
+                      optional: true
+
+                # Pipeline Configuration (optional)
+                - name: ENABLE_PIPELINE
+                  value: "false"
+                - name: PIPELINE_STEPS
+                  value: ""
+                - name: LLM_PROVIDER
+                  value: "openai"
+                - name: LLM_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: cve-notifier-secrets
+                      key: llm-api-key
+                      optional: true
+                - name: LLM_MODEL
+                  value: "gpt-4o-mini"
+
+              # Resource limits
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+              # Volume mounts for persistent storage
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: cve-notifier-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vuln-tower-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vuln-tower-secrets
+  namespace: default
+type: Opaque
+stringData:
+  # Add your secrets here
+  # nvd-api-key: "your-nvd-api-key"
+  # discord-webhook-url: "https://discord.com/api/webhooks/..."
+  # slack-webhook-url: "https://hooks.slack.com/services/..."
+  # teams-webhook-url: "https://outlook.office.com/webhook/..."
+  # telegram-bot-token: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
+  # telegram-chat-id: "-1001234567890"
+  # llm-api-key: "your-openai-api-key"

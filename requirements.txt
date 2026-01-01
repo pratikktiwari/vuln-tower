@@ -1,0 +1,9 @@
+requests>=2.31.0
+python-dateutil>=2.8.2
+
+# Optional database backends
+psycopg2-binary>=2.9.9; python_version >= '3.8'
+mysql-connector-python>=8.2.0; python_version >= '3.8'
+
+# Optional LLM integration
+openai>=1.12.0; python_version >= '3.8'

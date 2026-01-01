@@ -1,0 +1,72 @@
+vuln-tower:
+  stage: scheduled
+  image: python:3.11-slim
+
+  # Schedule: Run every hour
+  # See: https://docs.gitlab.com/ee/ci/pipelines/schedules.html
+  only:
+    - schedules
+    - web
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+
+  script:
+    - python -m vuln_tower.main
+
+  variables:
+    # General Configuration
+    APP_NAME: "vuln-tower"
+    LOG_LEVEL: "INFO"
+    RUN_MODE: "ci"
+
+    # Database Configuration
+    DB_TYPE: "sqlite"
+    DB_NAME: "vuln_tower.db"
+
+    # NVD Configuration
+    FETCH_WINDOW_MINUTES: "60"
+    MAX_RESULTS_PER_RUN: "100"
+    REQUEST_TIMEOUT: "30"
+
+    # Filter Configuration
+    MIN_CVSS_SCORE: "7.0"
+
+    # Use GitLab CI/CD variables for sensitive data
+    # Configure these in GitLab UI: Settings -> CI/CD -> Variables
+    # NVD_API_KEY: (set as protected variable)
+    # DISCORD_WEBHOOK_URL: (set as protected variable)
+    # SLACK_WEBHOOK_URL: (set as protected variable)
+    # TEAMS_WEBHOOK_URL: (set as protected variable)
+    # TELEGRAM_BOT_TOKEN: (set as protected variable)
+    # TELEGRAM_CHAT_ID: (set as protected variable)
+    # LLM_API_KEY: (set as protected variable)
+
+    # Notification toggles (override in GitLab variables)
+    ENABLE_DISCORD: "false"
+    ENABLE_SLACK: "false"
+    ENABLE_TEAMS: "false"
+    ENABLE_TELEGRAM: "false"
+
+    # Pipeline Configuration
+    ENABLE_PIPELINE: "false"
+    PIPELINE_STEPS: ""
+    LLM_PROVIDER: "openai"
+    LLM_MODEL: "gpt-4o-mini"
+
+    SECRET_PROVIDER: "env"
+
+  artifacts:
+    paths:
+      - vuln_tower.db
+    expire_in: 30 days
+    when: always
+
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+  timeout: 10m
