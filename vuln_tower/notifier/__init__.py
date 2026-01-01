@@ -34,7 +34,11 @@ def create_notifiers(config: Config, logger: StructuredLogger) -> List[Notifier]
             logger.warning("Discord enabled but webhook URL not configured")
         else:
             notifiers.append(
-                DiscordNotifier(notification_config.discord_webhook_url, logger)
+                DiscordNotifier(
+                    notification_config.discord_webhook_url,
+                    logger,
+                    notification_config.rate_limit_delay,
+                )
             )
 
     # Create Slack notifier if enabled
@@ -43,7 +47,11 @@ def create_notifiers(config: Config, logger: StructuredLogger) -> List[Notifier]
             logger.warning("Slack enabled but webhook URL not configured")
         else:
             notifiers.append(
-                SlackNotifier(notification_config.slack_webhook_url, logger)
+                SlackNotifier(
+                    notification_config.slack_webhook_url,
+                    logger,
+                    notification_config.rate_limit_delay,
+                )
             )
 
     # Create Teams notifier if enabled
@@ -52,7 +60,11 @@ def create_notifiers(config: Config, logger: StructuredLogger) -> List[Notifier]
             logger.warning("Teams enabled but webhook URL not configured")
         else:
             notifiers.append(
-                TeamsNotifier(notification_config.teams_webhook_url, logger)
+                TeamsNotifier(
+                    notification_config.teams_webhook_url,
+                    logger,
+                    notification_config.rate_limit_delay,
+                )
             )
 
     # Create Telegram notifier if enabled
@@ -68,6 +80,7 @@ def create_notifiers(config: Config, logger: StructuredLogger) -> List[Notifier]
                     notification_config.telegram_bot_token,
                     notification_config.telegram_chat_id,
                     logger,
+                    notification_config.rate_limit_delay,
                 )
             )
 

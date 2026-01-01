@@ -48,6 +48,7 @@ vuln-tower:
     ENABLE_SLACK: "false"
     ENABLE_TEAMS: "false"
     ENABLE_TELEGRAM: "false"
+    NOTIFICATION_RATE_LIMIT_DELAY: "1.0"
 
     # Pipeline Configuration
     ENABLE_PIPELINE: "false"

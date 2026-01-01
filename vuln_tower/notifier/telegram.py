@@ -6,6 +6,7 @@ Sends CVE notifications to Telegram chats via Bot API.
 
 from typing import List
 import requests
+import time
 
 from vuln_tower.core import StructuredLogger
 from vuln_tower.models import CVE
@@ -19,7 +20,13 @@ class TelegramNotifier(Notifier):
     Format: Formatted text messages with CVE details using Markdown.
     """
 
-    def __init__(self, bot_token: str, chat_id: str, logger: StructuredLogger):
+    def __init__(
+        self,
+        bot_token: str,
+        chat_id: str,
+        logger: StructuredLogger,
+        rate_limit_delay: float = 1.0,
+    ):
         """
         Initialize Telegram notifier.
 
@@ -27,10 +34,12 @@ class TelegramNotifier(Notifier):
             bot_token: Telegram Bot API token
             chat_id: Telegram chat ID (can be user ID, group ID, or channel username)
             logger: Structured logger instance
+            rate_limit_delay: Delay in seconds between requests (default: 1.0)
         """
         self.bot_token = bot_token
         self.chat_id = chat_id
         self.logger = logger
+        self.rate_limit_delay = rate_limit_delay
         self.api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
     def send(self, cves: List[CVE]):
@@ -45,9 +54,15 @@ class TelegramNotifier(Notifier):
 
         self.logger.info("Sending notifications to Telegram", count=len(cves))
 
-        for cve in cves:
+        for i, cve in enumerate(cves):
             try:
-                self._send_single(cve)
+                retry_after = self._send_single(cve)
+
+                # Rate limiting: always apply configured delay, add Retry-After on top if present
+                if i < len(cves) - 1:  # Don't sleep after the last message
+                    delay = self.rate_limit_delay + (retry_after if retry_after else 0)
+                    self.logger.debug(f"Rate limiting: sleeping for {delay}s")
+                    time.sleep(delay)
             except Exception as e:
                 self.logger.error(
                     "Failed to send Telegram notification",
@@ -55,8 +70,12 @@ class TelegramNotifier(Notifier):
                     error=str(e),
                 )
 
-    def _send_single(self, cve: CVE):
-        """Send a single CVE notification."""
+    def _send_single(self, cve: CVE) -> float:
+        """Send a single CVE notification.
+
+        Returns:
+            Retry-After delay in seconds if present in response headers, else None
+        """
         message = self._create_message(cve)
 
         payload = {
@@ -77,6 +96,15 @@ class TelegramNotifier(Notifier):
             raise Exception(f"Telegram API returned {response.status_code}")
 
         self.logger.debug("Telegram notification sent", cve_id=cve.cve_id)
+
+        # Check for Retry-After header
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return float(retry_after)
+            except ValueError:
+                return None
+        return None
 
     def _create_message(self, cve: CVE) -> str:
         """

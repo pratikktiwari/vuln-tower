@@ -173,6 +173,7 @@ class NotificationConfig:
     enable_telegram: bool
     telegram_bot_token: Optional[str]
     telegram_chat_id: Optional[str]
+    rate_limit_delay: float
 
     @staticmethod
     def load() -> "NotificationConfig":
@@ -186,6 +187,7 @@ class NotificationConfig:
             enable_telegram=_get_bool("ENABLE_TELEGRAM", False),
             telegram_bot_token=_get_str("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=_get_str("TELEGRAM_CHAT_ID"),
+            rate_limit_delay=_get_float("NOTIFICATION_RATE_LIMIT_DELAY", 1.0),
         )
 
 

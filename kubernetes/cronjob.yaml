@@ -116,6 +116,10 @@ spec:
                       key: telegram-chat-id
                       optional: true
 
+                # Notification Rate Limiting
+                - name: NOTIFICATION_RATE_LIMIT_DELAY
+                  value: "1.0"
+
                 # Pipeline Configuration (optional)
                 - name: ENABLE_PIPELINE
                   value: "false"

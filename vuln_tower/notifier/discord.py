@@ -6,6 +6,7 @@ Sends CVE notifications to Discord channels via webhooks.
 
 from typing import List
 import requests
+import time
 
 from vuln_tower.core import StructuredLogger
 from vuln_tower.models import CVE
@@ -19,16 +20,20 @@ class DiscordNotifier(Notifier):
     Format: Discord embed messages with CVE details.
     """
 
-    def __init__(self, webhook_url: str, logger: StructuredLogger):
+    def __init__(
+        self, webhook_url: str, logger: StructuredLogger, rate_limit_delay: float = 1.0
+    ):
         """
         Initialize Discord notifier.
 
         Args:
             webhook_url: Discord webhook URL
             logger: Structured logger instance
+            rate_limit_delay: Delay in seconds between requests (default: 1.0)
         """
         self.webhook_url = webhook_url
         self.logger = logger
+        self.rate_limit_delay = rate_limit_delay
 
     def send(self, cves: List[CVE]):
         """
@@ -42,9 +47,15 @@ class DiscordNotifier(Notifier):
 
         self.logger.info("Sending notifications to Discord", count=len(cves))
 
-        for cve in cves:
+        for i, cve in enumerate(cves):
             try:
-                self._send_single(cve)
+                retry_after = self._send_single(cve)
+
+                # Rate limiting: always apply configured delay, add Retry-After on top if present
+                if i < len(cves) - 1:  # Don't sleep after the last message
+                    delay = self.rate_limit_delay + (retry_after if retry_after else 0)
+                    self.logger.debug(f"Rate limiting: sleeping for {delay}s")
+                    time.sleep(delay)
             except Exception as e:
                 self.logger.error(
                     "Failed to send Discord notification",
@@ -52,14 +63,27 @@ class DiscordNotifier(Notifier):
                     error=str(e),
                 )
 
-    def _send_single(self, cve: CVE):
-        """Send a single CVE notification."""
+    def _send_single(self, cve: CVE) -> float:
+        """Send a single CVE notification.
+
+        Returns:
+            Retry-After delay in seconds if present in response headers, else None
+        """
         embed = self._create_embed(cve)
 
         payload = {"embeds": [embed]}
 
         response = requests.post(self.webhook_url, json=payload, timeout=10)
         response.raise_for_status()
+
+        # Check for Retry-After header
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                return float(retry_after)
+            except ValueError:
+                return None
+        return None
 
     def _create_embed(self, cve: CVE) -> dict:
         """
